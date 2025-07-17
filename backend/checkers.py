@@ -108,7 +108,7 @@ class CheckersGame:
     def _switch_turn(self):
         key = self._board_key()
         self.position_history[key] = self.position_history.get(key, 0) + 1
-        if self.position_history[key] >= 10:
+        if self.position_history[key] >= 5:
             self.winner = 'draw'
         else:
             self.turn = '🔴' if self.turn == '🔵' else '🔵'
