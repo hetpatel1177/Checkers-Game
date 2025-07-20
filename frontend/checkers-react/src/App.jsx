@@ -9,17 +9,50 @@ const App = () => {
   const [message, setMessage] = useState("");
   const [selected, setSelected] = useState(null);
   const [winner, setWinner] = useState(null);
-  const [moves, setMoves] = useState([]);
-  const [lastMove, setLastMove] = useState(null);
-  const [playerName, setPlayerName] = useState("Human");
-  const [gameStarted, setGameStarted] = useState(false);
+
+  const [moves, setMoves] = useState(() => {
+    const saved = localStorage.getItem("moves");
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [lastMove, setLastMove] = useState(() => {
+    const saved = localStorage.getItem("lastMove");
+    return saved ? JSON.parse(saved) : null;
+  });
+
+  const [playerName, setPlayerName] = useState(() => {
+    return localStorage.getItem("playerName") || "Human";
+  });
+
+  const [gameStarted, setGameStarted] = useState(() => {
+    return localStorage.getItem("gameStarted") === "true";
+  });
+
   const hasInitialized = useRef(false);
+
+  // Persist state in localStorage
+  useEffect(() => {
+    localStorage.setItem("moves", JSON.stringify(moves));
+  }, [moves]);
+
+  useEffect(() => {
+    localStorage.setItem("lastMove", JSON.stringify(lastMove));
+  }, [lastMove]);
+
+  useEffect(() => {
+    localStorage.setItem("playerName", playerName);
+  }, [playerName]);
+
+  useEffect(() => {
+    localStorage.setItem("gameStarted", gameStarted);
+  }, [gameStarted]);
 
   useEffect(() => {
     if (hasInitialized.current) return;
     hasInitialized.current = true;
 
-    if (window.confirm("Do you want to start a new game?")) {
+    const startNew = window.confirm("Do you want to start a new game?");
+    if (startNew) {
       resetGame();
     } else {
       fetchBoard();
@@ -31,9 +64,6 @@ const App = () => {
       const res = await axios.get(`${API_BASE}/board`);
       setBoard(res.data.board);
       setWinner(res.data.winner || null);
-      setMoves([]);
-      setLastMove(null);
-      setGameStarted(false);
     } catch (err) {
       console.error(err);
       setMessage("Failed to fetch board.");
@@ -58,7 +88,6 @@ const App = () => {
 
       const updatedMoves = [];
 
-      // Regex to extract AI move if present
       const aiMoveMatch = res.data.message.match(
         /AI moved from \((\d), (\d)\) to \((\d), (\d)\)/
       );
@@ -76,25 +105,25 @@ const App = () => {
       } else {
         setLastMove(end);
       }
+
       updatedMoves.push({
         player: `🧑 ${playerName}`,
         move: formatMove(start, end),
       });
-      setMoves((prev) => [...updatedMoves, ...prev]);
 
+      setMoves((prev) => [...updatedMoves, ...prev]);
     } catch (err) {
       console.error(err);
       setMessage("Invalid move.");
     }
   };
 
-
   const handleCellClick = (row, col) => {
     if (winner) return;
     if (selected) {
       makeMove(selected, [row, col]);
       setSelected(null);
-      if (!gameStarted) setGameStarted(true); // ✅ Line to lock name after first move
+      if (!gameStarted) setGameStarted(true);
     } else {
       setSelected([row, col]);
     }
@@ -103,7 +132,19 @@ const App = () => {
   const resetGame = async () => {
     try {
       await axios.post(`${API_BASE}/reset`);
-      fetchBoard();
+
+      // Clear localStorage and state
+      localStorage.removeItem("moves");
+      localStorage.removeItem("lastMove");
+      localStorage.removeItem("playerName");
+      localStorage.removeItem("gameStarted");
+
+      setMoves([]);
+      setLastMove(null);
+      setPlayerName("Human");
+      setGameStarted(false);
+
+      fetchBoard(); // load new board
       setMessage("Game reset.");
     } catch (err) {
       console.error(err);
@@ -118,13 +159,11 @@ const App = () => {
   return (
     <>
       <div className="min-h-screen bg-gray-900 text-white flex p-6">
-        {/* Game Board */}
         <div className="flex flex-col items-center">
           <h1 className="text-4xl font-bold mb-3 animate__animated animate__bounce">
             Checkers Game
           </h1>
 
-          {/* Player Name Input */}
           <div className="flex items-center gap-2 mb-2">
             <label className="text-sm">Your Name:</label>
             <input
@@ -136,7 +175,6 @@ const App = () => {
             />
           </div>
 
-          {/* Symbol Legend */}
           <div className="text-sm text-gray-300 mb-3">
             ⚪️ = Normal Piece &nbsp;&nbsp; 🤍 = King
           </div>
@@ -210,7 +248,6 @@ const App = () => {
               ) : (
                 `🎉 Game Over! ${playerName} wins!`
               )}
-
             </div>
           )}
 
@@ -300,7 +337,6 @@ const App = () => {
         </div>
       </div>
 
-      {/* ✅ Footer added here */}
       <footer className="mt-6 mb-3 text-center text-l text-gray-400 w-full">
         Made by Het Patel
       </footer>
