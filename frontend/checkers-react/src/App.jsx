@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import "animate.css";
 
-const API_BASE = "https://checkers-game-backend-zwsi.onrender.com";
+const API_BASE = "https://checkers-game-backend-zwsi.onrender.com/start";
 
 const App = () => {
   /* ─────────── Core game state ─────────── */
