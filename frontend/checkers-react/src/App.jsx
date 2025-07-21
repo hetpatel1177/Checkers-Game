@@ -8,26 +8,26 @@ const API_BASE = "https://checkers-game-backend-zwsi.onrender.com";
 
 const App = () => {
   /* ─────────────── Core state ─────────────── */
-  const [gameId, setGameId]   = useState(() => localStorage.getItem("gameId") || "");
-  const [board,  setBoard]    = useState(null);
-  const [winner, setWinner]   = useState(null);
-  const [message,setMessage]  = useState("");
+  const [gameId, setGameId] = useState(() => localStorage.getItem("gameId") || "");
+  const [board, setBoard] = useState(null);
+  const [winner, setWinner] = useState(null);
+  const [message, setMessage] = useState("");
 
-  const [selected,  setSelected]  = useState(null);
-  const [moves,     setMoves]     = useState(() => JSON.parse(localStorage.getItem("moves")     || "[]"));
-  const [lastMove,  setLastMove]  = useState(() => JSON.parse(localStorage.getItem("lastMove")  || "null"));
-  const [playerName,setPlayerName]= useState(() => localStorage.getItem("playerName") || "Human");
-  const [gameStarted,setGameStarted]=useState(() => localStorage.getItem("gameStarted")==="true");
+  const [selected, setSelected] = useState(null);
+  const [moves, setMoves] = useState(() => JSON.parse(localStorage.getItem("moves") || "[]"));
+  const [lastMove, setLastMove] = useState(() => JSON.parse(localStorage.getItem("lastMove") || "null"));
+  const [playerName, setPlayerName] = useState(() => localStorage.getItem("playerName") || "Human");
+  const [gameStarted, setGameStarted] = useState(() => localStorage.getItem("gameStarted") === "true");
 
   const [loading, setLoading] = useState(false);
   const hasInit = useRef(false);
 
   /* ───────── Persist to localStorage ───────── */
-  useEffect(() => { localStorage.setItem("gameId",     gameId);      }, [gameId]);
-  useEffect(() => { localStorage.setItem("moves",      JSON.stringify(moves));     }, [moves]);
-  useEffect(() => { localStorage.setItem("lastMove",   JSON.stringify(lastMove));  }, [lastMove]);
-  useEffect(() => { localStorage.setItem("playerName", playerName);  }, [playerName]);
-  useEffect(() => { localStorage.setItem("gameStarted",String(gameStarted));       }, [gameStarted]);
+  useEffect(() => { localStorage.setItem("gameId", gameId); }, [gameId]);
+  useEffect(() => { localStorage.setItem("moves", JSON.stringify(moves)); }, [moves]);
+  useEffect(() => { localStorage.setItem("lastMove", JSON.stringify(lastMove)); }, [lastMove]);
+  useEffect(() => { localStorage.setItem("playerName", playerName); }, [playerName]);
+  useEffect(() => { localStorage.setItem("gameStarted", String(gameStarted)); }, [gameStarted]);
 
   /* ───── First load: continue or new? ───── */
   useEffect(() => {
@@ -36,13 +36,13 @@ const App = () => {
 
     (async () => {
       if (gameId) {
-        const keep = window.confirm("Continue your previous game?\n\nOK = continue • Cancel = new");
-        keep ? fetchBoard(gameId) : startNew();
+        const keep = window.confirm("Continue?");
+        keep ? fetchBoard(gameId) : startNew();  // ✅ pass ID here
       } else {
         startNew();
       }
     })();
-  }, []); // eslint-disable-line
+  }, []);// eslint-disable-line
 
   /* ─────────── API helpers ─────────── */
 
@@ -94,7 +94,7 @@ const App = () => {
       const ai = data.message.match(/AI moved from \((\d), (\d)\) to \((\d), (\d)\)/);
       if (ai) {
         const from = [Number(ai[1]), Number(ai[2])];
-        const to   = [Number(ai[3]), Number(ai[4])];
+        const to = [Number(ai[3]), Number(ai[4])];
         history.push({ player: "🧠 AI", move: formatMove(from, to) });
         setLastMove(to);
       } else {
@@ -194,7 +194,7 @@ const App = () => {
                     </div>
                     <div className="grid grid-cols-8">
                       {row.map((cell, cIdx) => {
-                        const sel    = selected?.[0] === rIdx && selected?.[1] === cIdx;
+                        const sel = selected?.[0] === rIdx && selected?.[1] === cIdx;
                         const recent = lastMove?.[0] === rIdx && lastMove?.[1] === cIdx;
                         return (
                           <div
@@ -238,7 +238,7 @@ const App = () => {
               <p className="text-gray-400">No moves yet.</p>
             )}
           </div>
-<div className="mt-6 bg-gray-700 rounded-lg p-4 text-sm leading-relaxed max-h-96 overflow-y-auto">
+          <div className="mt-6 bg-gray-700 rounded-lg p-4 text-sm leading-relaxed max-h-96 overflow-y-auto">
             <h2 className="text-lg font-bold mb-2">📘 Rules</h2>
             <p className="mb-2">🤍 = King, ⚪️ = Man</p>
             <p>
