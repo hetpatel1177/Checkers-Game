@@ -4,7 +4,7 @@ import axios from "axios";
 import "animate.css";
 
 /* ⚠️ Change this to your Render URL in production */
-const API_BASE = "http://127.0.0.1:5001";
+const API_BASE = "https://checkers-game-backend-zwsi.onrender.com";
 
 const App = () => {
   /* ─────────────── Core state ─────────────── */
