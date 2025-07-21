@@ -3,10 +3,8 @@ from flask_cors import CORS
 from pymongo import MongoClient
 from bson import ObjectId
 from datetime import datetime, timedelta
-from checkers import CheckersGame  # Make sure this has to_dict() and from_dict()
-
+from checkers import CheckersGame
 import os
-import uuid
 
 # ─── Config ─────────────────────────────────────────────────────
 MONGO_URI = "mongodb+srv://ggpatel1234567:hetpatel1209@moves.xr4yahn.mongodb.net/?retryWrites=true&w=majority&appName=moves"
@@ -77,7 +75,6 @@ def make_move(game_id):
         return jsonify({"error": "Game not found"}), 404
 
     game = dict_to_game(data)
-
     move_data = request.get_json()
     from_pos = move_data.get("from")
     to_pos = move_data.get("to")
@@ -113,7 +110,7 @@ def make_move(game_id):
 @app.route("/ping")
 def ping():
     try:
-        mongo.db.games.find_one()
+        games_collection.find_one()
         return "MongoDB Connected ✅"
     except Exception as e:
         return f"Connection Error ❌: {str(e)}"
