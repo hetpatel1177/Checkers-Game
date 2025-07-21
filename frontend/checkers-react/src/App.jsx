@@ -1,48 +1,35 @@
+
 import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import "animate.css";
 
-const API_BASE = "https://checkers-game-backend-zwsi.onrender.com";
+/* ⚠️ Change this to your Render URL in production */
+const API_BASE = "http://127.0.0.1:5001";
 
 const App = () => {
-  const [gameId, setGameId] = useState(() => localStorage.getItem("gameId"));
-  const [board, setBoard] = useState(null);
-  const [winner, setWinner] = useState(null);
-  const [message, setMessage] = useState("");
+  /* ─────────────── Core state ─────────────── */
+  const [gameId, setGameId]   = useState(() => localStorage.getItem("gameId") || "");
+  const [board,  setBoard]    = useState(null);
+  const [winner, setWinner]   = useState(null);
+  const [message,setMessage]  = useState("");
 
-  const [selected, setSelected] = useState(null);
-  const [moves, setMoves] = useState(() =>
-    JSON.parse(localStorage.getItem("moves") || "[]")
-  );
-  const [lastMove, setLastMove] = useState(() =>
-    JSON.parse(localStorage.getItem("lastMove") || "null")
-  );
+  const [selected,  setSelected]  = useState(null);
+  const [moves,     setMoves]     = useState(() => JSON.parse(localStorage.getItem("moves")     || "[]"));
+  const [lastMove,  setLastMove]  = useState(() => JSON.parse(localStorage.getItem("lastMove")  || "null"));
+  const [playerName,setPlayerName]= useState(() => localStorage.getItem("playerName") || "Human");
+  const [gameStarted,setGameStarted]=useState(() => localStorage.getItem("gameStarted")==="true");
 
-  const [playerName, setPlayerName] = useState(
-    () => localStorage.getItem("playerName") || "Human"
-  );
-  const [gameStarted, setGameStarted] = useState(
-    () => localStorage.getItem("gameStarted") === "true"
-  );
-
+  const [loading, setLoading] = useState(false);
   const hasInit = useRef(false);
 
-  useEffect(() => {
-    localStorage.setItem("gameId", gameId || "");
-  }, [gameId]);
-  useEffect(() => {
-    localStorage.setItem("moves", JSON.stringify(moves));
-  }, [moves]);
-  useEffect(() => {
-    localStorage.setItem("lastMove", JSON.stringify(lastMove));
-  }, [lastMove]);
-  useEffect(() => {
-    localStorage.setItem("playerName", playerName);
-  }, [playerName]);
-  useEffect(() => {
-    localStorage.setItem("gameStarted", String(gameStarted));
-  }, [gameStarted]);
+  /* ───────── Persist to localStorage ───────── */
+  useEffect(() => { localStorage.setItem("gameId",     gameId);      }, [gameId]);
+  useEffect(() => { localStorage.setItem("moves",      JSON.stringify(moves));     }, [moves]);
+  useEffect(() => { localStorage.setItem("lastMove",   JSON.stringify(lastMove));  }, [lastMove]);
+  useEffect(() => { localStorage.setItem("playerName", playerName);  }, [playerName]);
+  useEffect(() => { localStorage.setItem("gameStarted",String(gameStarted));       }, [gameStarted]);
 
+  /* ───── First load: continue or new? ───── */
   useEffect(() => {
     if (hasInit.current) return;
     hasInit.current = true;
@@ -50,12 +37,14 @@ const App = () => {
     (async () => {
       if (gameId) {
         const keep = window.confirm("Continue your previous game?\n\nOK = continue • Cancel = new");
-        keep ? fetchBoard() : startNew();
+        keep ? fetchBoard(gameId) : startNew();
       } else {
         startNew();
       }
     })();
   }, []); // eslint-disable-line
+
+  /* ─────────── API helpers ─────────── */
 
   const startNew = async () => {
     try {
@@ -73,16 +62,21 @@ const App = () => {
     }
   };
 
-  const fetchBoard = async () => {
+  const fetchBoard = async (id) => {
+    if (!id) {
+      setMessage("No game ID found. Start a new game.");
+      return;
+    }
+    setLoading(true);
     try {
-      const { data } = await axios.get(`${API_BASE}/board/${gameId}`);
+      const { data } = await axios.get(`${API_BASE}/board/${id}`);
       setBoard(data.board);
       setWinner(data.winner || null);
     } catch (err) {
-      console.error(err);
-      setMessage("Could not fetch board, starting a new game.");
-      startNew();
+      console.error("Board fetch failed:", err);
+      setMessage("Failed to fetch board.");
     }
+    setLoading(false);
   };
 
   const makeMove = async (start, end) => {
@@ -100,7 +94,7 @@ const App = () => {
       const ai = data.message.match(/AI moved from \((\d), (\d)\) to \((\d), (\d)\)/);
       if (ai) {
         const from = [Number(ai[1]), Number(ai[2])];
-        const to = [Number(ai[3]), Number(ai[4])];
+        const to   = [Number(ai[3]), Number(ai[4])];
         history.push({ player: "🧠 AI", move: formatMove(from, to) });
         setLastMove(to);
       } else {
@@ -118,11 +112,9 @@ const App = () => {
   const resetGame = async () => {
     try {
       await axios.post(`${API_BASE}/reset/${gameId}`);
-      setMoves([]);
-      setLastMove(null);
-      setPlayerName("Human");
-      setGameStarted(false);
-      await fetchBoard();
+      setMoves([]); setLastMove(null);
+      setPlayerName("Human"); setGameStarted(false);
+      fetchBoard(gameId);
       setMessage("Game reset.");
     } catch (err) {
       console.error(err);
@@ -130,6 +122,7 @@ const App = () => {
     }
   };
 
+  /* ─────────── UI helpers ─────────── */
   const handleClick = (r, c) => {
     if (winner) return;
     if (selected) {
@@ -146,10 +139,11 @@ const App = () => {
 
   const columnLabels = [...Array(8)].map((_, i) => String.fromCharCode(65 + i));
 
+  /* ─────────────────── Render ─────────────────── */
   return (
     <>
       <div className="min-h-screen bg-gray-900 text-white flex p-6">
-        {/* Board column */}
+        {/* Board section */}
         <div className="flex flex-col items-center">
           <h1 className="text-4xl font-bold mb-3 animate__animated animate__bounce">
             Checkers Game
@@ -179,8 +173,11 @@ const App = () => {
             </button>
           </div>
 
-          {board ? (
+          {loading ? (
+            <p className="text-gray-400">Loading board…</p>
+          ) : board ? (
             <>
+              {/* Column labels */}
               <div className="flex ml-[20px] mb-1">
                 <div className="w-[24px]" />
                 {columnLabels.map((l) => (
@@ -188,6 +185,7 @@ const App = () => {
                 ))}
               </div>
 
+              {/* Board grid */}
               <div className="border-2 border-white">
                 {board.map((row, rIdx) => (
                   <div key={rIdx} className="flex">
@@ -196,7 +194,7 @@ const App = () => {
                     </div>
                     <div className="grid grid-cols-8">
                       {row.map((cell, cIdx) => {
-                        const sel = selected?.[0] === rIdx && selected?.[1] === cIdx;
+                        const sel    = selected?.[0] === rIdx && selected?.[1] === cIdx;
                         const recent = lastMove?.[0] === rIdx && lastMove?.[1] === cIdx;
                         return (
                           <div
@@ -214,7 +212,7 @@ const App = () => {
               </div>
             </>
           ) : (
-            <p>Loading board…</p>
+            <p className="text-red-400">Board not loaded.</p>
           )}
         </div>
 
@@ -240,8 +238,7 @@ const App = () => {
               <p className="text-gray-400">No moves yet.</p>
             )}
           </div>
-
-          <div className="mt-6 bg-gray-700 rounded-lg p-4 text-sm leading-relaxed max-h-96 overflow-y-auto">
+<div className="mt-6 bg-gray-700 rounded-lg p-4 text-sm leading-relaxed max-h-96 overflow-y-auto">
             <h2 className="text-lg font-bold mb-2">📘 Rules</h2>
             <p className="mb-2">🤍 = King, ⚪️ = Man</p>
             <p>
@@ -307,6 +304,7 @@ const App = () => {
               <br />• Game ends by win, block, or draw
             </p>
           </div>
+
         </div>
       </div>
 
