@@ -1,171 +1,147 @@
 import copy
 import math
-from typing import Dict, Tuple, List
-
 
 class CheckersGame:
-    """
-    Simple 8×8 Checkers engine.
+    def __init__(self):
+        self.board = self.create_board()
+        self.turn = '🔵'  # Red starts
+        self.winner = None
+        self.position_history = {}
 
-    • 🔵 / 💙 – Blue man / king  (human)
-    • 🔴 / ❤️ – Red  man / king  (AI)
-
-    Blue starts.  Kings can move diagonally in both directions.
-    A draw is declared after the same position occurs 5 times.
-    """
-
-    def __init__(self) -> None:
-        self.board: List[List[str]] = self._create_board()
-        self.turn: str = "🔵"              # Blue begins
-        self.winner: str | None = None
-        self.position_history: Dict[str, int] = {}
-
-    # ─────────────────────── Board helpers ────────────────────── #
-
-    @staticmethod
-    def _create_board() -> List[List[str]]:
-        board = [["." for _ in range(8)] for _ in range(8)]
+    def create_board(self):
+        board = [['.' for _ in range(8)] for _ in range(8)]
         for r in range(3):
             for c in range(8):
                 if (r + c) % 2 == 1:
-                    board[r][c] = "🔴"
+                    board[r][c] = '🔴'
         for r in range(5, 8):
             for c in range(8):
                 if (r + c) % 2 == 1:
-                    board[r][c] = "🔵"
+                    board[r][c] = '🔵'
         return board
 
-    @staticmethod
-    def _in_bounds(x: int, y: int) -> bool:
+    def _in_bounds(self, x, y):
         return 0 <= x < 8 and 0 <= y < 8
 
-    @staticmethod
-    def _get_directions(piece: str) -> List[Tuple[int, int]]:
-        if piece == "🔵":
+    def _get_directions(self, piece):
+        if piece == '🔵':
             return [(-1, -1), (-1, 1)]
-        if piece == "🔴":
+        elif piece == '🔴':
             return [(1, -1), (1, 1)]
-        if piece in ("💙", "❤️"):  # kings
+        elif piece in ['💙', '❤️']:  # Kings
             return [(-1, -1), (-1, 1), (1, -1), (1, 1)]
         return []
 
-    @staticmethod
-    def _king_for(player: str) -> str:
-        return "💙" if player == "🔵" else "❤️"
+    def _king_for(self, player):
+        return '💙' if player == '🔵' else '❤️'
 
-    # ───────────────────── Valid‑move logic ───────────────────── #
-
-    def get_valid_moves(
-        self, player: str
-    ) -> Dict[str, List[Tuple[Tuple[int, int], Tuple[int, int]]]]:
+    def get_valid_moves(self, player):
         captures, moves = [], []
+
         for r in range(8):
             for c in range(8):
                 piece = self.board[r][c]
                 if piece not in (player, self._king_for(player)):
                     continue
+
                 for dx, dy in self._get_directions(piece):
                     nr, nc = r + dx, c + dy
-                    if self._in_bounds(nr, nc) and self.board[nr][nc] == ".":
+                    if self._in_bounds(nr, nc) and self.board[nr][nc] == '.':
                         moves.append(((r, c), (nr, nc)))
+
                     mr, mc = r + dx, c + dy
                     er, ec = r + 2 * dx, c + 2 * dy
                     if (
                         self._in_bounds(er, ec)
-                        and self.board[er][ec] == "."
-                        and self.board[mr][mc] != "."
+                        and self.board[er][ec] == '.'
+                        and self.board[mr][mc] != '.'
                         and self.board[mr][mc] not in (player, self._king_for(player))
                     ):
                         captures.append(((r, c), (er, ec)))
+
         return {"captures": captures, "moves": moves}
 
-    # ────────────────────── Make a move ───────────────────────── #
-
-    def make_move(
-        self, start: Tuple[int, int], end: Tuple[int, int]
-    ) -> Tuple[bool, str]:
+    def make_move(self, start, end):
         if self.winner:
-            return False, f"Game over – {self.winner} already won."
+            return False, f"Game over. {self.winner.upper()} has already won."
 
         sx, sy = start
         ex, ey = end
         piece = self.board[sx][sy]
 
         if not self._in_bounds(sx, sy) or not self._in_bounds(ex, ey):
-            return False, "Move out of bounds."
-        if piece == "." or piece not in (self.turn, self._king_for(self.turn)):
-            return False, "Invalid piece selection."
-        if self.board[ex][ey] != ".":
-            return False, "Target cell not empty."
+            return False, "Move out of bounds"
+        if piece == '.' or piece not in (self.turn, self._king_for(self.turn)):
+            return False, "Invalid piece selection"
+        if self.board[ex][ey] != '.':
+            return False, "Target cell not empty"
 
-        legal_moves = self.get_valid_moves(self.turn)
-        if ((sx, sy), (ex, ey)) not in (
-            legal_moves["captures"] + legal_moves["moves"]
-        ):
-            return False, "Illegal move."
-
-        # Handle capture
         dx, dy = ex - sx, ey - sy
-        if abs(dx) == 2:
-            self.board[sx + dx // 2][sy + dy // 2] = "."
+        abs_dx, abs_dy = abs(dx), abs(dy)
 
-        # Move piece
-        self.board[ex][ey], self.board[sx][sy] = piece, "."
+        all_moves = self.get_valid_moves(self.turn)
+        valid = all_moves["captures"] + all_moves["moves"]
+        if ((sx, sy), (ex, ey)) not in valid:
+            return False, "Illegal move"
+
+        if abs_dx == 2 and abs_dy == 2:  # Capture
+            mx, my = sx + dx // 2, sy + dy // 2
+            self.board[mx][my] = '.'
+
+        self.board[ex][ey] = piece
+        self.board[sx][sy] = '.'
         self._maybe_king(ex, ey)
-
-        self._record_position()
         self._check_winner()
-        if not self.winner:
-            self.turn = "🔴" if self.turn == "🔵" else "🔵"
-        return True, "Move successful."
+        self._switch_turn()
+        return True, "Move successful"
 
-    def _maybe_king(self, x: int, y: int) -> None:
-        if self.board[x][y] == "🔵" and x == 0:
-            self.board[x][y] = "💙"
-        elif self.board[x][y] == "🔴" and x == 7:
-            self.board[x][y] = "❤️"
+    def _maybe_king(self, x, y):
+        piece = self.board[x][y]
+        if piece == '🔵' and x == 0:
+            self.board[x][y] = '💙'
+        elif piece == '🔴' and x == 7:
+            self.board[x][y] = '❤️'
 
-    # ─────────────── Draw detection & win check ──────────────── #
+    def _board_key(self):
+        return (tuple(tuple(row) for row in self.board), self.turn)
 
-    def _serialize_position(self) -> str:
-        return "/".join("".join(row) for row in self.board) + "|" + self.turn
-
-    def _record_position(self) -> None:
-        key = self._serialize_position()
+    def _switch_turn(self):
+        key = self._board_key()
         self.position_history[key] = self.position_history.get(key, 0) + 1
-        if self.position_history[key] >= 2:
-            self.winner = "draw"
+        if self.position_history[key] >= 5:
+            self.winner = 'draw'
+        else:
+            self.turn = '🔴' if self.turn == '🔵' else '🔵'
 
-    def _check_winner(self) -> None:
+    def _check_winner(self):
         if self.winner:
             return
-        blue_valid = self.get_valid_moves("🔵")
-        red_valid = self.get_valid_moves("🔴")
-        blue_has_pieces = any(cell in ("🔵", "💙") for row in self.board for cell in row)
-        red_has_pieces = any(cell in ("🔴", "❤️") for row in self.board for cell in row)
 
-        if not blue_has_pieces or not (blue_valid["captures"] or blue_valid["moves"]):
-            self.winner = "🔴"
-        elif not red_has_pieces or not (red_valid["captures"] or red_valid["moves"]):
-            self.winner = "🔵"
+        red_moves = self.get_valid_moves('🔵')
+        black_moves = self.get_valid_moves('🔴')
+        red_pieces = any(cell in ['🔵', '💙'] for row in self.board for cell in row)
+        black_pieces = any(cell in ['🔴', '❤️'] for row in self.board for cell in row)
 
-    # ─────────────────────── AI (minimax) ─────────────────────── #
+        if not red_pieces or (not red_moves["captures"] and not red_moves["moves"]):
+            self.winner = '🔴'
+        elif not black_pieces or (not black_moves["captures"] and not black_moves["moves"]):
+            self.winner = '🔵'
 
-    def evaluate(self) -> int:
-        blue, red = 0, 0
+    def evaluate(self):
+        red, black = 0, 0
         for row in self.board:
             for cell in row:
-                if cell == "🔵":
-                    blue += 1
-                elif cell == "💙":
-                    blue += 2
-                elif cell == "🔴":
+                if cell == '🔵':
                     red += 1
-                elif cell == "❤️":
+                elif cell == '💙':
                     red += 2
-        return red - blue  # AI (red) wants to maximize this
+                elif cell == '🔴':
+                    black += 1
+                elif cell == '❤️':
+                    black += 2
+        return black - red
 
-    def _clone(self) -> "CheckersGame":
+    def _clone(self):
         clone = CheckersGame()
         clone.board = copy.deepcopy(self.board)
         clone.turn = self.turn
@@ -173,50 +149,47 @@ class CheckersGame:
         clone.position_history = copy.deepcopy(self.position_history)
         return clone
 
-    def minimax(
-        self, depth: int, alpha: int, beta: int, maximizing: bool
-    ) -> Tuple[int, Tuple[Tuple[int, int], Tuple[int, int]] | None]:
-        if depth == 0 or self.winner:
+    def minimax(self, depth, alpha, beta, maximizing):
+        if depth == 0 or self.winner is not None:
             return self.evaluate(), None
 
-        player = "🔴" if maximizing else "🔵"
-        all_moves = self.get_valid_moves(player)["captures"] + self.get_valid_moves(
-            player
-        )["moves"]
+        player = '🔴' if maximizing else '🔵'
+        moves_data = self.get_valid_moves(player)
+        all_moves = moves_data["captures"] + moves_data["moves"]
         if not all_moves:
             return self.evaluate(), None
 
         best_move = None
-        if maximizing:
-            best_eval = -math.inf
-            for move in all_moves:
-                clone = self._clone()
-                clone.make_move(*move)
-                eval_, _ = clone.minimax(depth - 1, alpha, beta, False)
-                if eval_ > best_eval:
-                    best_eval, best_move = eval_, move
-                alpha = max(alpha, eval_)
-                if beta <= alpha:
-                    break
-            return best_eval, best_move
-        else:
-            best_eval = math.inf
-            for move in all_moves:
-                clone = self._clone()
-                clone.make_move(*move)
-                eval_, _ = clone.minimax(depth - 1, alpha, beta, True)
-                if eval_ < best_eval:
-                    best_eval, best_move = eval_, move
-                beta = min(beta, eval_)
-                if beta <= alpha:
-                    break
-            return best_eval, best_move
 
-    # Let AI play if it's red's turn
-    def ai_move_if_needed(
-        self,
-    ) -> Tuple[Tuple[int, int], Tuple[int, int]] | None:
-        if self.turn != "🔴" or self.winner:
+        if maximizing:
+            max_eval = -math.inf
+            for move in all_moves:
+                clone = self._clone()
+                clone.make_move(*move)
+                eval, _ = clone.minimax(depth - 1, alpha, beta, False)
+                if eval > max_eval:
+                    max_eval = eval
+                    best_move = move
+                alpha = max(alpha, eval)
+                if beta <= alpha:
+                    break
+            return max_eval, best_move
+        else:
+            min_eval = math.inf
+            for move in all_moves:
+                clone = self._clone()
+                clone.make_move(*move)
+                eval, _ = clone.minimax(depth - 1, alpha, beta, True)
+                if eval < min_eval:
+                    min_eval = eval
+                    best_move = move
+                beta = min(beta, eval)
+                if beta <= alpha:
+                    break
+            return min_eval, best_move
+
+    def ai_move_if_needed(self):
+        if self.turn != '🔴' or self.winner is not None:
             return None
         _, move = self.minimax(4, -math.inf, math.inf, True)
         if move:
