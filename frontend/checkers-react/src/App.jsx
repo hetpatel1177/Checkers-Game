@@ -5,22 +5,19 @@ import "animate.css";
 const API_BASE = "https://checkers-game-backend-zwsi.onrender.com";
 
 const App = () => {
-  /* ─────────── Core game state ─────────── */
-  const [gameId, setGameId]   = useState(() => localStorage.getItem("gameId"));
-  const [board,  setBoard]    = useState(null);
-  const [winner, setWinner]   = useState(null);
+  const [gameId, setGameId] = useState(() => localStorage.getItem("gameId"));
+  const [board, setBoard] = useState(null);
+  const [winner, setWinner] = useState(null);
   const [message, setMessage] = useState("");
 
-  /* selection / UX */
-  const [selected,   setSelected]   = useState(null);
-  const [moves,      setMoves]      = useState(() =>
+  const [selected, setSelected] = useState(null);
+  const [moves, setMoves] = useState(() =>
     JSON.parse(localStorage.getItem("moves") || "[]")
   );
-  const [lastMove,   setLastMove]   = useState(() =>
+  const [lastMove, setLastMove] = useState(() =>
     JSON.parse(localStorage.getItem("lastMove") || "null")
   );
 
-  /* meta */
   const [playerName, setPlayerName] = useState(
     () => localStorage.getItem("playerName") || "Human"
   );
@@ -30,14 +27,22 @@ const App = () => {
 
   const hasInit = useRef(false);
 
-  /* ─────────── Persist in localStorage ─────────── */
-  useEffect(() => { localStorage.setItem("gameId",     gameId     || ""); }, [gameId]);
-  useEffect(() => { localStorage.setItem("moves",      JSON.stringify(moves)); }, [moves]);
-  useEffect(() => { localStorage.setItem("lastMove",   JSON.stringify(lastMove)); }, [lastMove]);
-  useEffect(() => { localStorage.setItem("playerName", playerName); }, [playerName]);
-  useEffect(() => { localStorage.setItem("gameStarted", String(gameStarted)); }, [gameStarted]);
+  useEffect(() => {
+    localStorage.setItem("gameId", gameId || "");
+  }, [gameId]);
+  useEffect(() => {
+    localStorage.setItem("moves", JSON.stringify(moves));
+  }, [moves]);
+  useEffect(() => {
+    localStorage.setItem("lastMove", JSON.stringify(lastMove));
+  }, [lastMove]);
+  useEffect(() => {
+    localStorage.setItem("playerName", playerName);
+  }, [playerName]);
+  useEffect(() => {
+    localStorage.setItem("gameStarted", String(gameStarted));
+  }, [gameStarted]);
 
-  /* ─────────── First load / resume ─────────── */
   useEffect(() => {
     if (hasInit.current) return;
     hasInit.current = true;
@@ -52,14 +57,14 @@ const App = () => {
     })();
   }, []); // eslint-disable-line
 
-  /* ─────────── Backend helpers ─────────── */
   const startNew = async () => {
     try {
       const { data } = await axios.post(`${API_BASE}/start`);
       setGameId(data.game_id);
       setBoard(data.board);
       setWinner(data.winner);
-      setMoves([]); setLastMove(null);
+      setMoves([]);
+      setLastMove(null);
       setGameStarted(false);
       setMessage("New game created.");
     } catch (err) {
@@ -71,7 +76,8 @@ const App = () => {
   const fetchBoard = async () => {
     try {
       const { data } = await axios.get(`${API_BASE}/board/${gameId}`);
-      setBoard(data.board); setWinner(data.winner || null);
+      setBoard(data.board);
+      setWinner(data.winner || null);
     } catch (err) {
       console.error(err);
       setMessage("Could not fetch board, starting a new game.");
@@ -94,7 +100,7 @@ const App = () => {
       const ai = data.message.match(/AI moved from \((\d), (\d)\) to \((\d), (\d)\)/);
       if (ai) {
         const from = [Number(ai[1]), Number(ai[2])];
-        const to   = [Number(ai[3]), Number(ai[4])];
+        const to = [Number(ai[3]), Number(ai[4])];
         history.push({ player: "🧠 AI", move: formatMove(from, to) });
         setLastMove(to);
       } else {
@@ -112,7 +118,10 @@ const App = () => {
   const resetGame = async () => {
     try {
       await axios.post(`${API_BASE}/reset/${gameId}`);
-      setMoves([]); setLastMove(null); setPlayerName("Human"); setGameStarted(false);
+      setMoves([]);
+      setLastMove(null);
+      setPlayerName("Human");
+      setGameStarted(false);
       await fetchBoard();
       setMessage("Game reset.");
     } catch (err) {
@@ -121,7 +130,6 @@ const App = () => {
     }
   };
 
-  /* ─────────── Helpers ─────────── */
   const handleClick = (r, c) => {
     if (winner) return;
     if (selected) {
@@ -138,7 +146,6 @@ const App = () => {
 
   const columnLabels = [...Array(8)].map((_, i) => String.fromCharCode(65 + i));
 
-  /* ─────────── UI ─────────── */
   return (
     <>
       <div className="min-h-screen bg-gray-900 text-white flex p-6">
@@ -163,20 +170,17 @@ const App = () => {
             ⚪️ = Man &nbsp;&nbsp; 🤍 = King
           </div>
 
-          {/* controls */}
           <div className="flex gap-3 mb-4">
             <button onClick={resetGame} className="bg-red-500 hover:bg-red-600 px-6 py-2 rounded">
               🔁 Reset
             </button>
-            <button onClick={startNew}  className="bg-blue-500 hover:bg-blue-600 px-6 py-2 rounded">
+            <button onClick={startNew} className="bg-blue-500 hover:bg-blue-600 px-6 py-2 rounded">
               ➕ New
             </button>
           </div>
 
-          {/* board */}
           {board ? (
             <>
-              {/* column labels */}
               <div className="flex ml-[20px] mb-1">
                 <div className="w-[24px]" />
                 {columnLabels.map((l) => (
@@ -187,20 +191,18 @@ const App = () => {
               <div className="border-2 border-white">
                 {board.map((row, rIdx) => (
                   <div key={rIdx} className="flex">
-                    {/* row label */}
                     <div className="w-[24px] h-[64px] flex items-center justify-center text-gray-300 text-sm">
                       {rIdx + 1}
                     </div>
                     <div className="grid grid-cols-8">
                       {row.map((cell, cIdx) => {
-                        const sel   = selected?.[0] === rIdx && selected?.[1] === cIdx;
-                        const recent= lastMove?.[0] === rIdx && lastMove?.[1] === cIdx;
+                        const sel = selected?.[0] === rIdx && selected?.[1] === cIdx;
+                        const recent = lastMove?.[0] === rIdx && lastMove?.[1] === cIdx;
                         return (
                           <div
                             key={`${rIdx}-${cIdx}`}
                             onClick={() => handleClick(rIdx, cIdx)}
-                            className={`board-cell ${(rIdx + cIdx) % 2 ? "dark" : "light"}
-                                        ${sel ? "selected" : ""} ${recent ? "last-move" : ""}`}
+                            className={`board-cell ${(rIdx + cIdx) % 2 ? "dark" : "light"} ${sel ? "selected" : ""} ${recent ? "last-move" : ""}`}
                           >
                             {cell !== "." && cell}
                           </div>
@@ -239,11 +241,71 @@ const App = () => {
             )}
           </div>
 
-          {/* Rules (trimmed for brevity) */}
           <div className="mt-6 bg-gray-700 rounded-lg p-4 text-sm leading-relaxed max-h-96 overflow-y-auto">
             <h2 className="text-lg font-bold mb-2">📘 Rules</h2>
             <p className="mb-2">🤍 = King, ⚪️ = Man</p>
-            {/* … keep your existing rules text … */}
+            <p>
+              <br />
+              <strong>🎯 Objective</strong>
+              <br />
+              Capture all of your opponent’s pieces or block them so they have
+              no legal moves.
+            </p>
+
+            <p className="mt-2">
+              <br />
+              <strong>🎮 Game Setup</strong>
+              <br />
+              • Played on an 8×8 board, only dark squares are used.
+              <br />• Each player starts with 12 pieces on the first 3 rows of
+              dark squares.
+              <br />• Bottom-left square is a dark square.
+            </p>
+
+            <p className="mt-2">
+              <br />
+              <strong>👣 Basic Movement</strong>
+              <br />
+              • Pieces move diagonally forward by 1 square to an empty dark
+              square.
+            </p>
+
+            <p className="mt-2">
+              <br />
+              <strong>✂️ Capturing (Jumping)</strong>
+              <br />
+              • Jump over an adjacent opponent's piece onto the empty square
+              beyond.
+              <br />• No pressure to jump if a capture is available.
+              <br />• Multiple jumps are not allowed.
+            </p>
+
+            <p className="mt-2">
+              <br />
+              <strong>👑 Kinging</strong>
+              <br />
+              • Reach the opponent’s back row to become a 🤍 King.
+              <br />• Kings can move & jump both forward and backward
+              diagonally.
+            </p>
+
+            <p className="mt-2">
+              <br />
+              <strong>🛑 Ending the Game</strong>
+              <br />
+              • One player captures all opponent’s pieces or blocks all legal
+              moves.
+              <br />• A draw can be declared by repetition 5 times both with same moves.
+            </p>
+
+            <p className="mt-2">
+              <br />
+              <strong>📌 Key Rules Summary</strong>
+              <br />
+              • Normal pieces move forward only
+              <br />• 🤍 Kings move in both directions
+              <br />• Game ends by win, block, or draw
+            </p>
           </div>
         </div>
       </div>
