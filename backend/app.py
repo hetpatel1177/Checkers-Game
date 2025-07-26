@@ -63,8 +63,10 @@ def get_board(game_id):
 
     return jsonify({
         "board": doc["board"],
-        "winner": doc.get("winner")
+        "winner": doc.get("winner"),
+        "moves": doc.get("position_history", {})  # ✅ added
     })
+
 
 @app.route("/move/<game_id>", methods=["POST"])
 def move(game_id):

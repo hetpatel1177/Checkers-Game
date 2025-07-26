@@ -52,31 +52,35 @@ const App = () => {
   }, [gameStarted]);
 
   useEffect(() => {
-    const initGame = async () => {
-      if (hasInitialized.current) return;
-      hasInitialized.current = true;
+  const initGame = async () => {
+    if (hasInitialized.current) return;
+    hasInitialized.current = true;
 
-      const startNew = window.confirm("Do you want to start a new game?");
-      if (startNew || !gameId) {
-        try {
-          const res = await axios.post(`${API_BASE}/create_game`);
-          const newGameId = res.data.game_id;
-          localStorage.setItem("gameId", newGameId);
-          setGameId(newGameId);
-          setBoard(res.data.board);
-          setWinner(null);
-          resetStateOnly();
-        } catch (err) {
-          console.error("Failed to start new game:", err);
-          setMessage("Failed to start a new game.");
-        }
-      } else {
-        fetchBoard(gameId);
+    const startNew = window.confirm("Do you want to start a new game?");
+    if (startNew || !gameId) {
+      try {
+        const res = await axios.post(`${API_BASE}/create_game`);
+        const newGameId = res.data.game_id;
+        localStorage.setItem("gameId", newGameId);
+        setGameId(newGameId);
+        setBoard(res.data.board);
+        setWinner(null);
+
+        // ✅ Clear moves ONLY for a new game
+        resetStateOnly(); // Keep this here only for NEW game
+      } catch (err) {
+        console.error("Failed to start new game:", err);
+        setMessage("Failed to start a new game.");
       }
-    };
+    } else {
+      // ✅ Don't reset anything here, just fetch existing state
+      fetchBoard(gameId);
+    }
+  };
 
-    initGame();
-  }, []);
+  initGame();
+}, []);
+
 
   const fetchBoard = async (id) => {
     try {
