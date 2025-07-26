@@ -4,12 +4,18 @@ from pymongo import MongoClient, ASCENDING
 from datetime import datetime
 import uuid
 from checkers import CheckersGame
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 # MongoDB setup
-client = MongoClient("mongodb+srv://ggpatel1234567:hetpatel1209@moves.xr4yahn.mongodb.net/?retryWrites=true&w=majority&appName=moves")
+MONGO_URI = os.getenv("MONGO_URI")
+client = MongoClient(MONGO_URI)
+
 try:
     print("✅ Checking MongoDB connection...")
     client.admin.command('ping')
@@ -19,8 +25,6 @@ except Exception as e:
 
 db = client["checkers_db"]
 games = db["games"]
-
-# ✅ Ensure TTL index exists (runs once at startup)
 games.create_index([("created_at", ASCENDING)], expireAfterSeconds=3600)
 
 def serialize_game(game: CheckersGame):
