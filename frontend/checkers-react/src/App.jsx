@@ -83,11 +83,22 @@ const App = () => {
       const res = await axios.get(`${API_BASE}/board/${id}`);
       setBoard(res.data.board);
       setWinner(res.data.winner || null);
+
+      // 🆕 Rebuild moves from backend's position_history (res.data.moves)
+      const history = res.data.moves || {};
+      const rebuiltMoves = Object.entries(history).map(([_, move], index) => ({
+        player: index % 2 === 0 ? `🧑 ${playerName}` : "🧠 AI",
+        move: formatMove(move.from, move.to),
+      })).reverse(); // so latest is on top
+
+      setMoves(rebuiltMoves);
     } catch (err) {
       console.error(err);
       setMessage("Failed to fetch board.");
     }
   };
+
+
 
   const formatMove = ([r1, c1], [r2, c2]) =>
     `${String.fromCharCode(65 + c1)}${r1 + 1} → ${String.fromCharCode(65 + c2)}${r2 + 1}`;

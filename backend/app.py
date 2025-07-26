@@ -1,14 +1,12 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from pymongo import MongoClient
+from pymongo import MongoClient, ASCENDING
+from datetime import datetime
 import uuid
 from checkers import CheckersGame
 
-
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
-
-
 
 # MongoDB setup
 client = MongoClient("mongodb+srv://ggpatel1234567:hetpatel1209@moves.xr4yahn.mongodb.net/?retryWrites=true&w=majority&appName=moves")
@@ -22,8 +20,10 @@ except Exception as e:
 db = client["checkers_db"]
 games = db["games"]
 
+# ✅ Ensure TTL index exists (runs once at startup)
+games.create_index([("created_at", ASCENDING)], expireAfterSeconds=3600)
+
 def serialize_game(game: CheckersGame):
-    # Convert complex keys to strings
     safe_history = {
         str(k): v for k, v in game.position_history.items()
     }
@@ -33,7 +33,6 @@ def serialize_game(game: CheckersGame):
         "turn": game.turn,
         "position_history": safe_history
     }
-
 
 def deserialize_game(data):
     game = CheckersGame()
@@ -45,14 +44,14 @@ def deserialize_game(data):
     }
     return game
 
-
 @app.route("/create_game", methods=["POST"])
 def create_game():
     game = CheckersGame()
     game_id = str(uuid.uuid4())
     games.insert_one({
         "_id": game_id,
-        **serialize_game(game)
+        **serialize_game(game),
+        "created_at": datetime.utcnow()  # ✅ timestamp for TTL
     })
     return jsonify({"game_id": game_id, "board": game.board})
 
@@ -75,7 +74,6 @@ def move(game_id):
             return jsonify({"success": False, "message": "Game not found"}), 404
 
         game = deserialize_game(doc)
-
         data = request.get_json()
         start = data.get("from")
         end = data.get("to")
@@ -94,7 +92,12 @@ def move(game_id):
             if ai_move:
                 msg += f" | AI moved from {ai_move[0]} to {ai_move[1]}"
 
-        games.update_one({"_id": game_id}, {"$set": serialize_game(game)})
+        games.update_one(
+            {"_id": game_id},
+            {"$set": {
+                **serialize_game(game)
+            }}
+        )
 
         return jsonify({
             "success": success,
@@ -107,13 +110,15 @@ def move(game_id):
         print("❌ ERROR in /move:", e)
         return jsonify({"success": False, "message": str(e)}), 500
 
-
 @app.route("/reset/<game_id>", methods=["POST"])
 def reset_game(game_id):
     game = CheckersGame()
     games.update_one(
         {"_id": game_id},
-        {"$set": serialize_game(game)},
+        {"$set": {
+            **serialize_game(game),
+            "created_at": datetime.utcnow()  # ✅ reset TTL
+        }},
         upsert=True
     )
     return jsonify({"board": game.board, "message": "Game reset."})
