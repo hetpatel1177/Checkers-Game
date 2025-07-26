@@ -79,29 +79,24 @@ const App = () => {
   }, []);
 
   const fetchBoard = async (id) => {
-    if (!id) {
-      setMessage("No game ID found. Start a new game.");
-      return;
-    }
-
     try {
-      const { data } = await axios.get(`${API_BASE}/board/${id}`);
-      setBoard(data.board);
-      setWinner(data.winner || null);
+      const res = await axios.get(`${API_BASE}/board/${id}`);
+      setBoard(res.data.board);
+      setWinner(res.data.winner || null);
 
-      if (data.position_history) {
-        const moves = Object.entries(data.position_history).map(([moveNo, move]) => {
-          return `Move ${moveNo}: ${move}`;
-        });
-        setMoves(moves);  // This updates your move history UI
-      }
+      // 🆕 Rebuild moves from backend's position_history (res.data.moves)
+      const history = res.data.moves || {};
+      const rebuiltMoves = Object.entries(history).map(([_, move], index) => ({
+        player: index % 2 === 0 ? `🧑 ${playerName}` : "🧠 AI",
+        move: formatMove(move.from, move.to),
+      })).reverse(); // so latest is on top
 
+      setMoves(rebuiltMoves);
     } catch (err) {
-      console.error("Board fetch failed:", err);
+      console.error(err);
       setMessage("Failed to fetch board.");
     }
   };
-
 
 
 

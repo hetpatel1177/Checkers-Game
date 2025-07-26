@@ -23,14 +23,15 @@ games = db["games"]
 # ✅ Ensure TTL index exists (runs once at startup)
 games.create_index([("created_at", ASCENDING)], expireAfterSeconds=3600)
 
-def serialize_game(game):
+def serialize_game(game: CheckersGame):
+    safe_history = {
+        str(k): v for k, v in game.position_history.items()
+    }
     return {
         "board": game.board,
-        "turn": game.turn,
         "winner": game.winner,
-        "position_history": {
-            k: v for k, v in game.position_history.items() if v.strip()  # ✅ Removes empty moves
-        }
+        "turn": game.turn,
+        "position_history": safe_history
     }
 
 def deserialize_game(data):
@@ -62,10 +63,8 @@ def get_board(game_id):
 
     return jsonify({
         "board": doc["board"],
-        "winner": doc.get("winner"),
-        "position_history": doc.get("position_history", {})
+        "winner": doc.get("winner")
     })
-
 
 @app.route("/move/<game_id>", methods=["POST"])
 def move(game_id):
