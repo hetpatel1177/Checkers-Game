@@ -12,6 +12,13 @@ CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
 # MongoDB setup
 client = MongoClient("mongodb+srv://ggpatel1234567:hetpatel1209@moves.xr4yahn.mongodb.net/?retryWrites=true&w=majority&appName=moves")
+try:
+    print("✅ Checking MongoDB connection...")
+    client.admin.command('ping')
+    print("✅ MongoDB connected.")
+except Exception as e:
+    print("❌ MongoDB connection failed:", e)
+
 db = client["checkers_db"]
 games = db["games"]
 
@@ -112,4 +119,6 @@ def reset_game(game_id):
     return jsonify({"board": game.board, "message": "Game reset."})
 
 if __name__ == "__main__":
-    app.run(debug=True, port=5001)
+    import os
+    port = int(os.environ.get("PORT", 5001))
+    app.run(host="0.0.0.0", port=port)
