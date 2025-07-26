@@ -23,15 +23,14 @@ games = db["games"]
 # ✅ Ensure TTL index exists (runs once at startup)
 games.create_index([("created_at", ASCENDING)], expireAfterSeconds=3600)
 
-def serialize_game(game: CheckersGame):
-    safe_history = {
-        str(k): v for k, v in game.position_history.items()
-    }
+def serialize_game(game):
     return {
         "board": game.board,
-        "winner": game.winner,
         "turn": game.turn,
-        "position_history": safe_history
+        "winner": game.winner,
+        "position_history": {
+            k: v for k, v in game.position_history.items() if v.strip()  # ✅ Removes empty moves
+        }
     }
 
 def deserialize_game(data):
