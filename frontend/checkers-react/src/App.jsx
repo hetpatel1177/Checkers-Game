@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef } from "react";
 import axios from "axios";
 import "animate.css";
 
-const API_BASE = "https://checkers-game-backend-zwsi.onrender.com";
+const API_BASE = "http://127.0.0.1:5001";
 
 const App = () => {
   const [board, setBoard] = useState(null);
@@ -28,9 +28,13 @@ const App = () => {
     return localStorage.getItem("gameStarted") === "true";
   });
 
+  const [gameId, setGameId] = useState(() => {
+    return localStorage.getItem("gameId") || null;
+  });
+
   const hasInitialized = useRef(false);
 
-  // Persist state in localStorage
+  // Persist state
   useEffect(() => {
     localStorage.setItem("moves", JSON.stringify(moves));
   }, [moves]);
@@ -48,20 +52,35 @@ const App = () => {
   }, [gameStarted]);
 
   useEffect(() => {
-    if (hasInitialized.current) return;
-    hasInitialized.current = true;
+    const initGame = async () => {
+      if (hasInitialized.current) return;
+      hasInitialized.current = true;
 
-    const startNew = window.confirm("Do you want to start a new game?");
-    if (startNew) {
-      resetGame();
-    } else {
-      fetchBoard();
-    }
+      const startNew = window.confirm("Do you want to start a new game?");
+      if (startNew || !gameId) {
+        try {
+          const res = await axios.post(`${API_BASE}/create_game`);
+          const newGameId = res.data.game_id;
+          localStorage.setItem("gameId", newGameId);
+          setGameId(newGameId);
+          setBoard(res.data.board);
+          setWinner(null);
+          resetStateOnly();
+        } catch (err) {
+          console.error("Failed to start new game:", err);
+          setMessage("Failed to start a new game.");
+        }
+      } else {
+        fetchBoard(gameId);
+      }
+    };
+
+    initGame();
   }, []);
 
-  const fetchBoard = async () => {
+  const fetchBoard = async (id) => {
     try {
-      const res = await axios.get(`${API_BASE}/board`);
+      const res = await axios.get(`${API_BASE}/board/${id}`);
       setBoard(res.data.board);
       setWinner(res.data.winner || null);
     } catch (err) {
@@ -75,7 +94,7 @@ const App = () => {
 
   const makeMove = async (start, end) => {
     try {
-      const res = await axios.post(`${API_BASE}/move`, {
+      const res = await axios.post(`${API_BASE}/move/${gameId}`, {
         from: start,
         to: end,
       });
@@ -129,22 +148,23 @@ const App = () => {
     }
   };
 
+  const resetStateOnly = () => {
+    localStorage.removeItem("moves");
+    localStorage.removeItem("lastMove");
+    localStorage.removeItem("playerName");
+    localStorage.removeItem("gameStarted");
+
+    setMoves([]);
+    setLastMove(null);
+    setPlayerName("Human");
+    setGameStarted(false);
+  };
+
   const resetGame = async () => {
     try {
-      await axios.post(`${API_BASE}/reset`);
-
-      // Clear localStorage and state
-      localStorage.removeItem("moves");
-      localStorage.removeItem("lastMove");
-      localStorage.removeItem("playerName");
-      localStorage.removeItem("gameStarted");
-
-      setMoves([]);
-      setLastMove(null);
-      setPlayerName("Human");
-      setGameStarted(false);
-
-      fetchBoard(); // load new board
+      await axios.post(`${API_BASE}/reset/${gameId}`);
+      resetStateOnly();
+      fetchBoard(gameId);
       setMessage("Game reset.");
     } catch (err) {
       console.error(err);
@@ -235,7 +255,7 @@ const App = () => {
           )}
         </div>
 
-        {/* Right Sidebar */}
+        {/* Sidebar */}
         <div className="ml-10 w-80 bg-gray-800 rounded-xl p-5 shadow-lg max-h-screen overflow-y-auto">
           <p className="text-sm mb-3 text-gray-400">{message}</p>
 

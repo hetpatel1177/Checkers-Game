@@ -1,48 +1,115 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from pymongo import MongoClient
+import uuid
 from checkers import CheckersGame
 
+
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}}, supports_credentials=True)
 
-game = CheckersGame()
 
-@app.route("/board", methods=["GET"])
-def get_board():
-    return jsonify({"board": game.board, "winner": game.winner})
 
-@app.route("/move", methods=["POST"])
-def make_move():
-    data = request.get_json()
-    from_pos = data.get("from")
-    to_pos = data.get("to")
+# MongoDB setup
+client = MongoClient("mongodb+srv://ggpatel1234567:hetpatel1209@moves.xr4yahn.mongodb.net/?retryWrites=true&w=majority&appName=moves")
+db = client["checkers_db"]
+games = db["games"]
 
-    if from_pos is None or to_pos is None:
-        return jsonify({"message": "Missing move data"}), 400
+def serialize_game(game: CheckersGame):
+    # Convert complex keys to strings
+    safe_history = {
+        str(k): v for k, v in game.position_history.items()
+    }
+    return {
+        "board": game.board,
+        "winner": game.winner,
+        "turn": game.turn,
+        "position_history": safe_history
+    }
 
-    success, message = game.make_move(from_pos, to_pos)
-    if not success:
+
+def deserialize_game(data):
+    game = CheckersGame()
+    game.board = data["board"]
+    game.winner = data.get("winner")
+    game.turn = data["turn"]
+    game.position_history = {
+        k: v for k, v in data.get("position_history", {}).items()
+    }
+    return game
+
+
+@app.route("/create_game", methods=["POST"])
+def create_game():
+    game = CheckersGame()
+    game_id = str(uuid.uuid4())
+    games.insert_one({
+        "_id": game_id,
+        **serialize_game(game)
+    })
+    return jsonify({"game_id": game_id, "board": game.board})
+
+@app.route("/board/<game_id>", methods=["GET"])
+def get_board(game_id):
+    doc = games.find_one({"_id": game_id})
+    if not doc:
+        return jsonify({"error": "Game not found"}), 404
+
+    return jsonify({
+        "board": doc["board"],
+        "winner": doc.get("winner")
+    })
+
+@app.route("/move/<game_id>", methods=["POST"])
+def move(game_id):
+    try:
+        doc = games.find_one({"_id": game_id})
+        if not doc:
+            return jsonify({"success": False, "message": "Game not found"}), 404
+
+        game = deserialize_game(doc)
+
+        data = request.get_json()
+        start = data.get("from")
+        end = data.get("to")
+
+        print("⬅️ Move requested:", start, "to", end)
+        print("🔄 Current turn:", game.turn)
+
+        valid_moves = game.get_valid_moves(game.turn)
+        print("✅ Valid moves:", valid_moves)
+
+        success, msg = game.make_move(start, end)
+
+        ai_move = None
+        if success and game.turn == '🔴':
+            ai_move = game.ai_move_if_needed()
+            if ai_move:
+                msg += f" | AI moved from {ai_move[0]} to {ai_move[1]}"
+
+        games.update_one({"_id": game_id}, {"$set": serialize_game(game)})
+
         return jsonify({
-            "success": False,
-            "message": message,
+            "success": success,
+            "message": msg,
             "board": game.board,
             "winner": game.winner
         })
 
-    ai_move = game.ai_move_if_needed()
+    except Exception as e:
+        print("❌ ERROR in /move:", e)
+        return jsonify({"success": False, "message": str(e)}), 500
 
-    return jsonify({
-        "success": True,
-        "message": f"{message}" + (f" | AI moved from {ai_move[0]} to {ai_move[1]}" if ai_move else ""),
-        "board": game.board,
-        "winner": game.winner
-    })
 
-@app.route("/reset", methods=["POST"])
-def reset_game():
-    global game
+@app.route("/reset/<game_id>", methods=["POST"])
+def reset_game(game_id):
     game = CheckersGame()
-    return jsonify({"message": "Game reset", "board": game.board, "winner": None})
+    games.update_one(
+        {"_id": game_id},
+        {"$set": serialize_game(game)},
+        upsert=True
+    )
+    return jsonify({"board": game.board, "message": "Game reset."})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=True, port=5001)
